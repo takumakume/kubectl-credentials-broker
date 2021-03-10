@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/takumakume/kubectl-credentials-proxy/credentials"
-	"github.com/takumakume/kubectl-credentials-proxy/kubeconfig"
+	"github.com/takumakume/kubectl-credentials-broker/credentials"
+	"github.com/takumakume/kubectl-credentials-broker/kubeconfig"
 )
 
 var (
@@ -20,7 +20,7 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:     "credentials-proxy",
+	Use:     "credentials-broker",
 	Short:   "",
 	Long:    "",
 	Version: "0.0.1",

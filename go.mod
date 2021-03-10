@@ -1,4 +1,4 @@
-module github.com/takumakume/kubectl-credentials-proxy
+module github.com/takumakume/kubectl-credentials-broker
 
 go 1.15
 

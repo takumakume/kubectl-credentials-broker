@@ -1,2 +1,2 @@
 build:
-	go build -o kubectl-credentials_proxy
+	go build -o kubectl-credentials_broker

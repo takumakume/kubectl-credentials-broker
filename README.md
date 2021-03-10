@@ -1,1 +1,1 @@
-# kubectl-credentials-proxy
+# kubectl-credentials-broker
