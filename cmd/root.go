@@ -1,11 +1,13 @@
 package cmd
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 
 	"github.com/spf13/cobra"
 	"github.com/takumakume/kubectl-credentials-broker/credentials"
@@ -25,10 +27,16 @@ var rootCmd = &cobra.Command{
 	Long:    "",
 	Version: "0.0.1",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		r, err := newRunner()
+		r, err := newRunner(&arguments{
+			clientCertificatePath: argsClientCertificatePath,
+			clientKeyPath:         argsClientKeyPath,
+			tokenPath:             argsTokenPath,
+			beforeExecCommand:     argsBeforeExecCommand,
+		})
 		if err != nil {
 			return err
 		}
+
 		return r.run()
 	},
 }
@@ -50,10 +58,50 @@ func init() {
 }
 
 type runner struct {
+	args *arguments
 	cred credentials.Credentials
 }
 
-func newRunner() (*runner, error) {
+type arguments struct {
+	clientCertificatePath string
+	clientKeyPath         string
+	tokenPath             string
+	beforeExecCommand     string
+}
+
+func (args *arguments) validate() error {
+	switch {
+	case args.clientCertificatePath != "" && args.clientKeyPath != "":
+		crt, err := ioutil.ReadFile(args.clientCertificatePath)
+		if err != nil {
+			return err
+		}
+
+		key, err := ioutil.ReadFile(args.clientKeyPath)
+		if err != nil {
+			return err
+		}
+
+		_, err = tls.LoadX509KeyPair(string(crt), string(key))
+		if err != nil {
+			return err
+		}
+	case args.clientCertificatePath != "" || args.clientKeyPath != "":
+		return fmt.Errorf("both client-certificate-path and client-key-path must be provided")
+	case args.tokenPath != "":
+		if !fileExists(args.tokenPath) {
+			return fmt.Errorf("token file not found: %s", args.tokenPath)
+		}
+	}
+
+	return nil
+}
+
+func newRunner(args *arguments) (*runner, error) {
+	if err := args.validate(); err != nil {
+		return nil, err
+	}
+
 	kconfig, err := kubeconfig.New()
 	if err != nil {
 		return nil, err
@@ -69,7 +117,7 @@ func newRunner() (*runner, error) {
 		return nil, err
 	}
 
-	r := &runner{}
+	r := &runner{args: args}
 	switch user.Exec.APIVersion {
 	case "client.authentication.k8s.io/v1beta1":
 		r.cred = &credentials.V1Beta1{}
@@ -83,29 +131,29 @@ func newRunner() (*runner, error) {
 }
 
 func (r *runner) run() error {
-	if len(argsBeforeExecCommand) > 0 {
-		if err := execCommand(argsBeforeExecCommand); err != nil {
+	if len(r.args.beforeExecCommand) > 0 {
+		if err := execCommand(r.args.beforeExecCommand); err != nil {
 			return err
 		}
 	}
 
 	opts := credentials.CredentialOptions{}
-	if len(argsClientCertificatePath) > 0 {
-		buf, err := ioutil.ReadFile(argsClientCertificatePath)
+	if len(r.args.clientCertificatePath) > 0 {
+		buf, err := ioutil.ReadFile(r.args.clientCertificatePath)
 		if err != nil {
 			return err
 		}
 		opts.ClientCertificateData = string(buf)
 	}
-	if len(argsClientKeyPath) > 0 {
-		buf, err := ioutil.ReadFile(argsClientKeyPath)
+	if len(r.args.clientKeyPath) > 0 {
+		buf, err := ioutil.ReadFile(r.args.clientKeyPath)
 		if err != nil {
 			return err
 		}
 		opts.ClientKeyData = string(buf)
 	}
-	if len(argsTokenPath) > 0 {
-		buf, err := ioutil.ReadFile(argsTokenPath)
+	if len(r.args.tokenPath) > 0 {
+		buf, err := ioutil.ReadFile(r.args.tokenPath)
 		if err != nil {
 			return err
 		}
@@ -130,4 +178,20 @@ func execCommand(cmdline string) error {
 	}
 
 	return nil
+}
+
+func fileExists(filename string) bool {
+	_, err := os.Stat(filename)
+
+	if pathError, ok := err.(*os.PathError); ok {
+		if pathError.Err == syscall.ENOTDIR {
+			return false
+		}
+	}
+
+	if os.IsNotExist(err) {
+		return false
+	}
+
+	return true
 }
