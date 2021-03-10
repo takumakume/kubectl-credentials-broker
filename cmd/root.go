@@ -23,8 +23,8 @@ var (
 
 var rootCmd = &cobra.Command{
 	Use:     "credentials-broker",
-	Short:   "",
-	Long:    "",
+	Short:   "credentials-broker",
+	Long:    "credentials-broker",
 	Version: "0.0.1",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := newRunner(&arguments{
@@ -51,10 +51,10 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.Flags().StringVarP(&argsClientCertificatePath, "client-certificate-path", "", "", "")
-	rootCmd.Flags().StringVarP(&argsClientKeyPath, "client-key-path", "", "", "")
-	rootCmd.Flags().StringVarP(&argsTokenPath, "token-path", "", "", "")
-	rootCmd.Flags().StringVarP(&argsBeforeExecCommand, "before-exec-command", "", "", "")
+	rootCmd.Flags().StringVarP(&argsClientCertificatePath, "client-certificate-path", "", "", "PEM-encoded client certificate file path. Can contain CA certificate. If this flag is specified, --client-key-path is also required. (optional)")
+	rootCmd.Flags().StringVarP(&argsClientKeyPath, "client-key-path", "", "", "PEM-encoded client key file path. (optional)")
+	rootCmd.Flags().StringVarP(&argsTokenPath, "token-path", "", "", "Token file path. (optional)")
+	rootCmd.Flags().StringVarP(&argsBeforeExecCommand, "before-exec-command", "", "", "A command line to run before responding to the credential plugin. For example, it can be used to update certificate and token files. (optional)")
 }
 
 type runner struct {
@@ -124,7 +124,7 @@ func newRunner(args *arguments) (*runner, error) {
 	case "client.authentication.k8s.io/v1alpha1":
 		r.cred = &credentials.V1Alpha1{}
 	default:
-		return nil, fmt.Errorf("Unsupported API Version: %s", user.Exec.APIVersion)
+		return nil, fmt.Errorf("unsupported client authentication API version: %s", user.Exec.APIVersion)
 	}
 
 	return r, nil
