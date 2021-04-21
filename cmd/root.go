@@ -102,10 +102,7 @@ func newRunner(args *arguments) (*runner, error) {
 		return nil, err
 	}
 
-	kconfig, err := kubeconfig.New()
-	if err != nil {
-		return nil, err
-	}
+	kconfig := kubeconfig.New()
 
 	ct, err := kconfig.ReadCurrentContext()
 	if err != nil {
@@ -115,6 +112,10 @@ func newRunner(args *arguments) (*runner, error) {
 	user, err := kconfig.ReadUser(ct.AuthInfo)
 	if err != nil {
 		return nil, err
+	}
+
+	if user.Exec == nil {
+		return nil, fmt.Errorf("exec is not specified for user in current-context, this command expects to be run as a credential plugin for kubeconfig")
 	}
 
 	r := &runner{args: args}

@@ -8,18 +8,13 @@ import (
 )
 
 type Kubeconfig struct {
-	clientConfig   clientcmd.ClientConfig
-	configFilePath string
+	clientConfig clientcmd.ClientConfig
 }
 
-func New() (*Kubeconfig, error) {
-	rules := clientcmd.NewDefaultClientConfigLoadingRules()
-	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, &clientcmd.ConfigOverrides{})
-
+func New() *Kubeconfig {
 	return &Kubeconfig{
-		clientConfig:   clientConfig,
-		configFilePath: rules.GetLoadingPrecedence()[0],
-	}, nil
+		clientConfig: clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{}),
+	}
 }
 
 func (k *Kubeconfig) ReadCurrentContext() (*api.Context, error) {
