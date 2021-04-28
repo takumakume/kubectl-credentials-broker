@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+
+jobs:
+  job-test:
+    name: CI
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go_version: [1.15, 1.16]
+    steps:
+      - name: Setup golang ${{ matrix.go_version }}
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go_version }}
+
+      - name: Check out source code
+        uses: actions/checkout@v2
+
+      - name: Test
+        run: make ci
