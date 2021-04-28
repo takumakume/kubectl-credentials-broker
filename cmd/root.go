@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"crypto/tls"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -71,27 +71,10 @@ type arguments struct {
 
 func (args *arguments) validate() error {
 	switch {
-	case args.clientCertificatePath != "" && args.clientKeyPath != "":
-		crt, err := ioutil.ReadFile(args.clientCertificatePath)
-		if err != nil {
-			return err
-		}
-
-		key, err := ioutil.ReadFile(args.clientKeyPath)
-		if err != nil {
-			return err
-		}
-
-		_, err = tls.LoadX509KeyPair(string(crt), string(key))
-		if err != nil {
-			return err
-		}
-	case args.clientCertificatePath != "" || args.clientKeyPath != "":
+	case args.clientCertificatePath == "" && args.clientKeyPath == "" && args.tokenPath == "":
+		return errors.New("requires either certificate token")
+	case (args.clientCertificatePath != "" && args.clientKeyPath == "") || args.clientCertificatePath == "" && args.clientKeyPath != "":
 		return fmt.Errorf("both client-certificate-path and client-key-path must be provided")
-	case args.tokenPath != "":
-		if !fileExists(args.tokenPath) {
-			return fmt.Errorf("token file not found: %s", args.tokenPath)
-		}
 	}
 
 	return nil
