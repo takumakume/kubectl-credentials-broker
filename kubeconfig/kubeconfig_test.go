@@ -1,10 +1,12 @@
 package kubeconfig
 
 import (
+	"bytes"
 	"io/ioutil"
 	"os"
 	"reflect"
 	"testing"
+	"text/template"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/clientcmd"
@@ -461,6 +463,31 @@ users:
 }
 
 func TestKubeconfig_CurrentCertificateBundle(t *testing.T) {
+	testDir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Errorf("TempDir() error = %v", err)
+		return
+	}
+	defer os.Remove(testDir)
+
+	certFile, err := ioutil.TempFile(testDir, "tls.crt")
+	if _, err = certFile.Write([]byte("client-certificate-file-sample-string")); err != nil {
+		t.Errorf("ioutil.Write() error = %v", err)
+		return
+	}
+
+	keyFile, err := ioutil.TempFile(testDir, "tls.key")
+	if _, err = keyFile.Write([]byte("client-key-file-sample-string")); err != nil {
+		t.Errorf("ioutil.Write() error = %v", err)
+		return
+	}
+
+	caFile, err := ioutil.TempFile(testDir, "ca.crt")
+	if _, err = caFile.Write([]byte("certificate-authority-file-sample-string")); err != nil {
+		t.Errorf("ioutil.Write() error = %v", err)
+		return
+	}
+
 	type fields struct {
 		kubeconfigString string
 	}
@@ -471,7 +498,76 @@ func TestKubeconfig_CurrentCertificateBundle(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "ok",
+			name: "from files",
+			fields: fields{
+				kubeconfigString: tmpl(`---
+apiVersion: v1
+kind: Config
+current-context: context1
+clusters:
+- cluster:
+    server: https://127.0.0.1
+    certificate-authority: {{ .ca }}
+  name: server1
+contexts:
+- context:
+    cluster: server1
+    namespace: kube-system
+    user: user1
+  name: context1
+users:
+- name: user1
+  user:
+    client-certificate: {{ .cert }}
+    client-key: {{ .key }}`, map[string]interface{}{
+					"ca":   caFile.Name(),
+					"cert": certFile.Name(),
+					"key":  keyFile.Name()}),
+			},
+			want: &CertificateBundle{
+				Certificate: "client-certificate-file-sample-string",
+				Key:         "client-key-file-sample-string",
+				CA:          "certificate-authority-file-sample-string",
+			},
+		},
+		{
+			name: "*-data used",
+			fields: fields{
+				kubeconfigString: tmpl(`---
+apiVersion: v1
+kind: Config
+current-context: context1
+clusters:
+- cluster:
+    server: https://127.0.0.1
+    certificate-authority: {{ .ca }}
+    certificate-authority-data: Y2VydGlmaWNhdGUtYXV0aG9yaXR5LWRhdGEtc2FtcGxlLXN0cmluZw== # certificate-authority-data-sample-string
+  name: server1
+contexts:
+- context:
+    cluster: server1
+    namespace: kube-system
+    user: user1
+  name: context1
+users:
+- name: user1
+  user:
+    client-certificate: {{ .cert }}
+    client-certificate-data: Y2xpZW50LWNlcnRpZmljYXRlLWRhdGEtc2FtcGxlLXN0cmluZw== # client-certificate-data-sample-string
+    client-key: {{ .key }}
+    client-key-data: Y2xpZW50LWtleS1kYXRhLXNhbXBsZS1zdHJpbmc= #client-key-data-sample-string`, map[string]interface{}{
+					"ca":   caFile.Name(),
+					"cert": certFile.Name(),
+					"key":  keyFile.Name()}),
+			},
+			want: &CertificateBundle{
+				Certificate: "client-certificate-data-sample-string",
+				Key:         "client-key-data-sample-string",
+				CA:          "certificate-authority-data-sample-string",
+			},
+		},
+		{
+			name: "*-data only",
 			fields: fields{
 				kubeconfigString: `---
 apiVersion: v1
@@ -500,6 +596,115 @@ users:
 				CA:          "certificate-authority-data-sample-string",
 			},
 		},
+		{
+			name: "all empty",
+			fields: fields{
+				kubeconfigString: `---
+apiVersion: v1
+kind: Config
+current-context: context1
+clusters:
+- cluster:
+    server: https://127.0.0.1
+  name: server1
+contexts:
+- context:
+    cluster: server1
+    namespace: kube-system
+    user: user1
+  name: context1
+users:
+- name: user1
+  user:`,
+			},
+			want: &CertificateBundle{
+				Certificate: "",
+				Key:         "",
+				CA:          "",
+			},
+		},
+		{
+			name: "client-certificate-data only (empty if client-key-data is missing)",
+			fields: fields{
+				kubeconfigString: `---
+apiVersion: v1
+kind: Config
+current-context: context1
+clusters:
+- cluster:
+    server: https://127.0.0.1
+  name: server1
+contexts:
+- context:
+    cluster: server1
+    namespace: kube-system
+    user: user1
+  name: context1
+users:
+- name: user1
+  user:
+    client-certificate-data: Y2xpZW50LWNlcnRpZmljYXRlLWRhdGEtc2FtcGxlLXN0cmluZw== # client-certificate-data-sample-string`,
+			},
+			want: &CertificateBundle{
+				Certificate: "",
+				Key:         "",
+				CA:          "",
+			},
+		},
+		{
+			name: "client-certificate only (empty if client-key is missing)",
+			fields: fields{
+				kubeconfigString: tmpl(`---
+apiVersion: v1
+kind: Config
+current-context: context1
+clusters:
+- cluster:
+    server: https://127.0.0.1
+  name: server1
+contexts:
+- context:
+    cluster: server1
+    namespace: kube-system
+    user: user1
+  name: context1
+users:
+- name: user1
+  user:
+    client-certificate: {{ .cert }}`, map[string]interface{}{
+					"cert": certFile.Name()}),
+			},
+			want: &CertificateBundle{
+				Certificate: "",
+				Key:         "",
+				CA:          "",
+			},
+		},
+		{
+			name: "file not found",
+			fields: fields{
+				kubeconfigString: `---
+apiVersion: v1
+kind: Config
+current-context: context1
+clusters:
+- cluster:
+    server: https://127.0.0.1
+  name: server1
+contexts:
+- context:
+    cluster: server1
+    namespace: kube-system
+    user: user1
+  name: context1
+users:
+- name: user1
+  user:
+    client-certificate: /path/to/notfound.crt
+    client-key: /path/to/notfound.key`,
+			},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -524,25 +729,6 @@ users:
 }
 
 func TestKubeconfig_CurrentUserToken(t *testing.T) {
-	testDir, err := ioutil.TempDir("", "")
-	if err != nil {
-		t.Errorf("TempDir() error = %v", err)
-		return
-	}
-	defer os.Remove(testDir)
-
-	certFile, err := ioutil.TempFile(testDir, "tls.crt")
-	if _, err = certFile.Write([]byte("cert-string")); err != nil {
-		t.Errorf("ioutil.Write() error = %v", err)
-		return
-	}
-
-	keyFile, err := ioutil.TempFile(testDir, "tls.key")
-	if _, err = keyFile.Write([]byte("key-string")); err != nil {
-		t.Errorf("ioutil.Write() error = %v", err)
-		return
-	}
-
 	type fields struct {
 		kubeconfigString string
 	}
@@ -619,4 +805,14 @@ users:
 			}
 		})
 	}
+}
+
+func tmpl(tpl string, params map[string]interface{}) string {
+	var tmpl = template.Must(template.New("").Parse(tpl))
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, params); err != nil {
+		panic(err)
+	}
+
+	return buf.String()
 }
