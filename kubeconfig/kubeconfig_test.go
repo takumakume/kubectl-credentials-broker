@@ -433,7 +433,6 @@ contexts:
 users:
 - name: user1`,
 			},
-
 			wantErr: true,
 		},
 	}
