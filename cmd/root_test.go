@@ -1,6 +1,11 @@
 package cmd
 
-import "testing"
+import (
+	"io/ioutil"
+	"os"
+	"reflect"
+	"testing"
+)
 
 func Test_arguments_validate(t *testing.T) {
 	type fields struct {
@@ -82,6 +87,104 @@ func Test_arguments_validate(t *testing.T) {
 			}
 			if err := args.validate(); (err != nil) != tt.wantErr {
 				t.Errorf("arguments.validate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestRun(t *testing.T) {
+	testDir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Errorf("TempDir() error = %v", err)
+		return
+	}
+	defer os.Remove(testDir)
+
+	tokenFile, err := ioutil.TempFile(testDir, "token")
+	if _, err = tokenFile.Write([]byte("token-string")); err != nil {
+		t.Errorf("ioutil.Write() error = %v", err)
+		return
+	}
+	certFile, err := ioutil.TempFile(testDir, "tls.crt")
+	if _, err = certFile.Write([]byte("cert-string")); err != nil {
+		t.Errorf("ioutil.Write() error = %v", err)
+		return
+	}
+	keyFile, err := ioutil.TempFile(testDir, "tls.key")
+	if _, err = keyFile.Write([]byte("key-string")); err != nil {
+		t.Errorf("ioutil.Write() error = %v", err)
+		return
+	}
+
+	type args struct {
+		arguments      arguments
+		kubeconfigData string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    []byte
+		wantErr bool
+	}{
+		{
+			name: "ok",
+			args: args{
+				arguments: arguments{
+					tokenPath:             tokenFile.Name(),
+					clientCertificatePath: certFile.Name(),
+					clientKeyPath:         keyFile.Name(),
+				},
+				kubeconfigData: `apiVersion: v1
+kind: Config
+current-context: context1
+clusters:
+- cluster:
+    server: https://127.0.0.1
+  name: server1
+contexts:
+- context:
+    cluster: server1
+    namespace: default
+    user: user1
+  name: context1
+users:
+- name: user1
+  user:
+    exec:
+      apiVersion: client.authentication.k8s.io/v1beta1
+`,
+			},
+			want: []byte(`{"kind":"ExecCredential","apiVersion":"client.authentication.k8s.io/v1beta1","spec":{},"status":{"token":"token-string","clientCertificateData":"cert-string","clientKeyData":"key-string"}}`),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			kubeconfigFile, err := ioutil.TempFile("", "kube-config-")
+			defer os.Remove(kubeconfigFile.Name())
+
+			if _, err = kubeconfigFile.Write([]byte(tt.args.kubeconfigData)); err != nil {
+				t.Errorf("kubeconfigFile.Write() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Run error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			os.Setenv("KUBECONFIG", kubeconfigFile.Name())
+
+			runner, err := newRunner(&tt.args.arguments)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Run newRunner() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			got, err := runner.run()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Run newRunner().run() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Run newRunner().run() = %v, want %v", string(got), string(tt.want))
 			}
 		})
 	}

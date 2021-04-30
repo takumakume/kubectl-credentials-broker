@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"syscall"
 
 	"github.com/spf13/cobra"
 	"github.com/takumakume/kubectl-credentials-broker/credentials"
@@ -37,7 +36,14 @@ var rootCmd = &cobra.Command{
 			return err
 		}
 
-		return r.run()
+		buf, err := r.run()
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("%s", string(buf))
+
+		return nil
 	},
 }
 
@@ -58,8 +64,9 @@ func init() {
 }
 
 type runner struct {
-	args *arguments
-	cred credentials.Credentials
+	args       *arguments
+	cred       credentials.Credentials
+	kubeConfig *kubeconfig.Kubeconfig
 }
 
 type arguments struct {
@@ -85,73 +92,47 @@ func newRunner(args *arguments) (*runner, error) {
 		return nil, err
 	}
 
-	kconfig := kubeconfig.New()
-
-	ct, err := kconfig.ReadCurrentContext()
+	kubeConfig := kubeconfig.New()
+	execAPIVersion, err := kubeConfig.ReadCurrentUserExecVersion()
 	if err != nil {
 		return nil, err
 	}
 
-	user, err := kconfig.ReadUser(ct.AuthInfo)
-	if err != nil {
-		return nil, err
+	r := &runner{
+		args:       args,
+		kubeConfig: kubeConfig,
 	}
 
-	if user.Exec == nil {
-		return nil, fmt.Errorf("exec is not specified for user in current-context, this command expects to be run as a credential plugin for kubeconfig")
-	}
-
-	r := &runner{args: args}
-	switch user.Exec.APIVersion {
+	switch execAPIVersion {
 	case "client.authentication.k8s.io/v1beta1":
 		r.cred = &credentials.V1Beta1{}
 	case "client.authentication.k8s.io/v1alpha1":
 		r.cred = &credentials.V1Alpha1{}
 	default:
-		return nil, fmt.Errorf("unsupported client authentication API version: %s", user.Exec.APIVersion)
+		return nil, fmt.Errorf("unsupported client authentication API version: %s", execAPIVersion)
 	}
 
 	return r, nil
 }
 
-func (r *runner) run() error {
+func (r *runner) run() ([]byte, error) {
 	if len(r.args.beforeExecCommand) > 0 {
 		if err := execCommand(r.args.beforeExecCommand); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	opts := credentials.CredentialOptions{}
-	if len(r.args.clientCertificatePath) > 0 {
-		buf, err := ioutil.ReadFile(r.args.clientCertificatePath)
-		if err != nil {
-			return err
-		}
-		opts.ClientCertificateData = string(buf)
-	}
-	if len(r.args.clientKeyPath) > 0 {
-		buf, err := ioutil.ReadFile(r.args.clientKeyPath)
-		if err != nil {
-			return err
-		}
-		opts.ClientKeyData = string(buf)
-	}
-	if len(r.args.tokenPath) > 0 {
-		buf, err := ioutil.ReadFile(r.args.tokenPath)
-		if err != nil {
-			return err
-		}
-		opts.Token = string(buf)
-
+	opts, err := r.makeCredentialOptions()
+	if err != nil {
+		return nil, err
 	}
 
 	buf, err := r.cred.ToJSON(opts)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	fmt.Println(string(buf))
-	return nil
+	return buf, nil
 }
 
 func execCommand(cmdline string) error {
@@ -164,18 +145,45 @@ func execCommand(cmdline string) error {
 	return nil
 }
 
-func fileExists(filename string) bool {
-	_, err := os.Stat(filename)
+func (r *runner) makeCredentialOptions() (*credentials.CredentialOptions, error) {
+	opts := &credentials.CredentialOptions{}
 
-	if pathError, ok := err.(*os.PathError); ok {
-		if pathError.Err == syscall.ENOTDIR {
-			return false
+	certificateBundle, err := r.kubeConfig.CurrentCertificateBundle()
+	if err != nil {
+		return nil, err
+	}
+	opts.ClientCertificateData = fmt.Sprintf("%s\n%s", certificateBundle.Certificate, certificateBundle.CA)
+	opts.ClientKeyData = certificateBundle.Key
+
+	token, err := r.kubeConfig.CurrentUserToken()
+	if err != nil {
+		return nil, err
+	}
+	opts.Token = token
+
+	if len(r.args.clientCertificatePath) > 0 {
+		buf, err := ioutil.ReadFile(r.args.clientCertificatePath)
+		if err != nil {
+			return nil, err
 		}
+		opts.ClientCertificateData = string(buf)
 	}
 
-	if os.IsNotExist(err) {
-		return false
+	if len(r.args.clientKeyPath) > 0 {
+		buf, err := ioutil.ReadFile(r.args.clientKeyPath)
+		if err != nil {
+			return nil, err
+		}
+		opts.ClientKeyData = string(buf)
 	}
 
-	return true
+	if len(r.args.tokenPath) > 0 {
+		buf, err := ioutil.ReadFile(r.args.tokenPath)
+		if err != nil {
+			return nil, err
+		}
+		opts.Token = string(buf)
+	}
+
+	return opts, nil
 }
