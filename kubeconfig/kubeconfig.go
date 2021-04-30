@@ -1,7 +1,6 @@
 package kubeconfig
 
 import (
-	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 
@@ -115,21 +114,10 @@ func (k *Kubeconfig) CurrentCertificateBundle() (*CertificateBundle, error) {
 		return nil, err
 	}
 
-	if len(user.ClientCertificateData) > 0 {
-		var certBuf []byte
-		_, err = base64.StdEncoding.Decode(certBuf, user.ClientCertificateData)
-		if err != nil {
-			return nil, err
-		}
-		var keyBuf []byte
-		_, err = base64.StdEncoding.Decode(keyBuf, user.ClientKeyData)
-		if err != nil {
-			return nil, err
-		}
-
-		certificateBundle.Certificate = string(certBuf)
-		certificateBundle.Key = string(keyBuf)
-	} else if len(user.ClientCertificate) > 0 {
+	if len(user.ClientCertificateData) > 0 && len(user.ClientKeyData) > 0 {
+		certificateBundle.Certificate = string(user.ClientCertificateData)
+		certificateBundle.Key = string(user.ClientKeyData)
+	} else if len(user.ClientCertificate) > 0 && len(user.ClientKey) > 0 {
 		certBuf, err := ioutil.ReadFile(user.ClientCertificate)
 		if err != nil {
 			return nil, err
@@ -145,13 +133,7 @@ func (k *Kubeconfig) CurrentCertificateBundle() (*CertificateBundle, error) {
 	}
 
 	if len(cluster.CertificateAuthorityData) > 0 {
-		var caBuf []byte
-		_, err = base64.StdEncoding.Decode(caBuf, cluster.CertificateAuthorityData)
-		if err != nil {
-			return nil, err
-		}
-
-		certificateBundle.CA = string(caBuf)
+		certificateBundle.CA = string(cluster.CertificateAuthorityData)
 	} else if len(cluster.CertificateAuthority) > 0 {
 		caBuf, err := ioutil.ReadFile(cluster.CertificateAuthority)
 		if err != nil {

@@ -1,6 +1,8 @@
 package kubeconfig
 
 import (
+	"io/ioutil"
+	"os"
 	"reflect"
 	"testing"
 
@@ -468,7 +470,36 @@ func TestKubeconfig_CurrentCertificateBundle(t *testing.T) {
 		want    *CertificateBundle
 		wantErr bool
 	}{
-		// TODO: Add test cases.
+		{
+			name: "ok",
+			fields: fields{
+				kubeconfigString: `---
+apiVersion: v1
+kind: Config
+current-context: context1
+clusters:
+- cluster:
+    server: https://127.0.0.1
+    certificate-authority-data: Y2VydGlmaWNhdGUtYXV0aG9yaXR5LWRhdGEtc2FtcGxlLXN0cmluZw== # certificate-authority-data-sample-string
+  name: server1
+contexts:
+- context:
+    cluster: server1
+    namespace: kube-system
+    user: user1
+  name: context1
+users:
+- name: user1
+  user:
+    client-certificate-data: Y2xpZW50LWNlcnRpZmljYXRlLWRhdGEtc2FtcGxlLXN0cmluZw== # client-certificate-data-sample-string
+    client-key-data: Y2xpZW50LWtleS1kYXRhLXNhbXBsZS1zdHJpbmc= #client-key-data-sample-string`,
+			},
+			want: &CertificateBundle{
+				Certificate: "client-certificate-data-sample-string",
+				Key:         "client-key-data-sample-string",
+				CA:          "certificate-authority-data-sample-string",
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -487,6 +518,104 @@ func TestKubeconfig_CurrentCertificateBundle(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Kubeconfig.CurrentCertificateBundle() = %+v, want %+v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestKubeconfig_CurrentUserToken(t *testing.T) {
+	testDir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Errorf("TempDir() error = %v", err)
+		return
+	}
+	defer os.Remove(testDir)
+
+	certFile, err := ioutil.TempFile(testDir, "tls.crt")
+	if _, err = certFile.Write([]byte("cert-string")); err != nil {
+		t.Errorf("ioutil.Write() error = %v", err)
+		return
+	}
+
+	keyFile, err := ioutil.TempFile(testDir, "tls.key")
+	if _, err = keyFile.Write([]byte("key-string")); err != nil {
+		t.Errorf("ioutil.Write() error = %v", err)
+		return
+	}
+
+	type fields struct {
+		kubeconfigString string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "ok",
+			fields: fields{
+				kubeconfigString: `---
+apiVersion: v1
+kind: Config
+current-context: context1
+clusters:
+- cluster:
+    server: https://127.0.0.1
+  name: server1
+contexts:
+- context:
+    cluster: server1
+    namespace: kube-system
+    user: user1
+  name: context1
+users:
+- name: user1
+  user:
+    token: hoge`,
+			},
+			want: "hoge",
+		},
+		{
+			name: "not found",
+			fields: fields{
+				kubeconfigString: `---
+apiVersion: v1
+kind: Config
+current-context: context1
+clusters:
+- cluster:
+    server: https://127.0.0.1
+  name: server1
+contexts:
+- context:
+    cluster: server1
+    namespace: kube-system
+    user: user1
+  name: context1
+users:
+- name: user1`,
+			},
+			want: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			clientConfig, err := clientcmd.NewClientConfigFromBytes([]byte(tt.fields.kubeconfigString))
+			if err != nil {
+				t.Errorf("Kubeconfig.CurrentUserToken() test data error = %+v", err)
+				return
+			}
+			k := &Kubeconfig{
+				clientConfig: clientConfig,
+			}
+			got, err := k.CurrentUserToken()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Kubeconfig.CurrentUserToken() error = %+v, wantErr %+v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("Kubeconfig.CurrentUserToken() = %+v, want %+v", got, tt.want)
 			}
 		})
 	}
