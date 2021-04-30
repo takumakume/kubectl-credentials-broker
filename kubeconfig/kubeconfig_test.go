@@ -67,8 +67,7 @@ contexts:
 users:
 - name: user1
   user:
-    token: hoge
-`,
+    token: hoge`,
 			},
 			wantErr: true,
 		},
