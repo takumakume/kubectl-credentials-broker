@@ -101,17 +101,7 @@ func TestRun(t *testing.T) {
 	defer os.Remove(testDir)
 
 	tokenFile, err := ioutil.TempFile(testDir, "token")
-	if _, err = tokenFile.Write([]byte("token-string")); err != nil {
-		t.Errorf("ioutil.Write() error = %v", err)
-		return
-	}
-	certFile, err := ioutil.TempFile(testDir, "tls.crt")
-	if _, err = certFile.Write([]byte("cert-string")); err != nil {
-		t.Errorf("ioutil.Write() error = %v", err)
-		return
-	}
-	keyFile, err := ioutil.TempFile(testDir, "tls.key")
-	if _, err = keyFile.Write([]byte("key-string")); err != nil {
+	if _, err = tokenFile.Write([]byte("token-from-file")); err != nil {
 		t.Errorf("ioutil.Write() error = %v", err)
 		return
 	}
@@ -127,14 +117,13 @@ func TestRun(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "ok",
+			name: "API version: client.authentication.k8s.io/v1beta1",
 			args: args{
 				arguments: arguments{
-					tokenPath:             tokenFile.Name(),
-					clientCertificatePath: certFile.Name(),
-					clientKeyPath:         keyFile.Name(),
+					tokenPath: tokenFile.Name(),
 				},
-				kubeconfigData: `apiVersion: v1
+				kubeconfigData: `---
+apiVersion: v1
 kind: Config
 current-context: context1
 clusters:
@@ -151,10 +140,37 @@ users:
 - name: user1
   user:
     exec:
-      apiVersion: client.authentication.k8s.io/v1beta1
-`,
+      apiVersion: client.authentication.k8s.io/v1beta1`,
 			},
-			want: []byte(`{"kind":"ExecCredential","apiVersion":"client.authentication.k8s.io/v1beta1","spec":{},"status":{"token":"token-string","clientCertificateData":"cert-string","clientKeyData":"key-string"}}`),
+			want: []byte(`{"kind":"ExecCredential","apiVersion":"client.authentication.k8s.io/v1beta1","spec":{},"status":{"token":"token-from-file"}}`),
+		},
+		{
+			name: "API version: client.authentication.k8s.io/v1alpha1",
+			args: args{
+				arguments: arguments{
+					tokenPath: tokenFile.Name(),
+				},
+				kubeconfigData: `---
+apiVersion: v1
+kind: Config
+current-context: context1
+clusters:
+- cluster:
+    server: https://127.0.0.1
+  name: server1
+contexts:
+- context:
+    cluster: server1
+    namespace: default
+    user: user1
+  name: context1
+users:
+- name: user1
+  user:
+    exec:
+      apiVersion: client.authentication.k8s.io/v1alpha1`,
+			},
+			want: []byte(`{"kind":"ExecCredential","apiVersion":"client.authentication.k8s.io/v1alpha1","spec":{},"status":{"token":"token-from-file"}}`),
 		},
 	}
 	for _, tt := range tests {
