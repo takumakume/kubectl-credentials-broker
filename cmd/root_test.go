@@ -5,6 +5,9 @@ import (
 	"os"
 	"reflect"
 	"testing"
+
+	"github.com/takumakume/kubectl-credentials-broker/credentials"
+	"github.com/takumakume/kubectl-credentials-broker/kubeconfig"
 )
 
 func Test_arguments_validate(t *testing.T) {
@@ -201,6 +204,136 @@ users:
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Run newRunner().run() = %v, want %v", string(got), string(tt.want))
+			}
+		})
+	}
+}
+
+func Test_makeCredentialOptions(t *testing.T) {
+	testDir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Errorf("TempDir() error = %v", err)
+		return
+	}
+	defer os.Remove(testDir)
+
+	certFile, err := ioutil.TempFile(testDir, "tls.crt")
+	if _, err = certFile.Write([]byte("client-certificate-from-file")); err != nil {
+		t.Errorf("ioutil.Write() error = %v", err)
+		return
+	}
+
+	keyFile, err := ioutil.TempFile(testDir, "tls.key")
+	if _, err = keyFile.Write([]byte("client-key-from-file")); err != nil {
+		t.Errorf("ioutil.Write() error = %v", err)
+		return
+	}
+
+	caFile, err := ioutil.TempFile(testDir, "ca.crt")
+	if _, err = caFile.Write([]byte("certificate-authority-from-file")); err != nil {
+		t.Errorf("ioutil.Write() error = %v", err)
+		return
+	}
+
+	tokenFile, err := ioutil.TempFile(testDir, "token")
+	if _, err = tokenFile.Write([]byte("token-from-file")); err != nil {
+		t.Errorf("ioutil.Write() error = %v", err)
+		return
+	}
+
+	type args struct {
+		args                 *arguments
+		kubeConfigCredential *kubeconfig.Credential
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    *credentials.CredentialOption
+		wantErr bool
+	}{
+		{
+			name: "args certificate/key and token overrides kubeconfig value",
+			args: args{
+				args: &arguments{
+					clientCertificatePath: certFile.Name(),
+					clientKeyPath:         keyFile.Name(),
+					tokenPath:             tokenFile.Name(),
+				},
+				kubeConfigCredential: &kubeconfig.Credential{
+					ClientCertificate: "client-certificate-from-kubeconfig\ncertificate-authority-from-kubeconfig",
+					ClientKey:         "client-key-from-kubeconfig",
+					Token:             "token-from-kubeconfig",
+				},
+			},
+			want: &credentials.CredentialOption{
+				ClientCertificateData: "client-certificate-from-file",
+				ClientKeyData:         "client-key-from-file",
+				Token:                 "token-from-file",
+			},
+		},
+		{
+			name: "args certificate/key overrides kubeconfig value",
+			args: args{
+				args: &arguments{
+					clientCertificatePath: certFile.Name(),
+					clientKeyPath:         keyFile.Name(),
+				},
+				kubeConfigCredential: &kubeconfig.Credential{
+					ClientCertificate: "client-certificate-from-kubeconfig\ncertificate-authority-from-kubeconfig",
+					ClientKey:         "client-key-from-kubeconfig",
+					Token:             "token-from-kubeconfig",
+				},
+			},
+			want: &credentials.CredentialOption{
+				ClientCertificateData: "client-certificate-from-file",
+				ClientKeyData:         "client-key-from-file",
+				Token:                 "token-from-kubeconfig",
+			},
+		},
+		{
+			name: "args token overrides kubeconfig value",
+			args: args{
+				args: &arguments{
+					tokenPath: tokenFile.Name(),
+				},
+				kubeConfigCredential: &kubeconfig.Credential{
+					ClientCertificate: "client-certificate-from-kubeconfig\ncertificate-authority-from-kubeconfig",
+					ClientKey:         "client-key-from-kubeconfig",
+					Token:             "token-from-kubeconfig",
+				},
+			},
+			want: &credentials.CredentialOption{
+				ClientCertificateData: "client-certificate-from-kubeconfig\ncertificate-authority-from-kubeconfig",
+				ClientKeyData:         "client-key-from-kubeconfig",
+				Token:                 "token-from-file",
+			},
+		},
+		{
+			name: "kubeconfig.Credential is empty",
+			args: args{
+				args: &arguments{
+					clientCertificatePath: certFile.Name(),
+					clientKeyPath:         keyFile.Name(),
+					tokenPath:             tokenFile.Name(),
+				},
+				kubeConfigCredential: &kubeconfig.Credential{},
+			},
+			want: &credentials.CredentialOption{
+				ClientCertificateData: "client-certificate-from-file",
+				ClientKeyData:         "client-key-from-file",
+				Token:                 "token-from-file",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := makeCredentialOptions(tt.args.args, tt.args.kubeConfigCredential)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("makeCredentialOptions() error = %+v, wantErr %+v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("makeCredentialOptions() = %+v, want %+v", got, tt.want)
 			}
 		})
 	}
