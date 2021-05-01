@@ -12,9 +12,10 @@ type Kubeconfig struct {
 	clientConfig clientcmd.ClientConfig
 }
 
-type CertificateBundle struct {
-	Certificate string
-	Key         string
+type Credential struct {
+	ClientCertificate string
+	ClientKey         string
+	Token             string
 }
 
 func New() *Kubeconfig {
@@ -95,7 +96,7 @@ func (k *Kubeconfig) ReadCurrentUserExecVersion() (string, error) {
 	return user.Exec.APIVersion, nil
 }
 
-func (k *Kubeconfig) CurrentCertificateBundle() (*CertificateBundle, error) {
+func (k *Kubeconfig) CurrentCredential() (*Credential, error) {
 	cc, err := k.ReadCurrentContext()
 	if err != nil {
 		return nil, err
@@ -146,28 +147,11 @@ func (k *Kubeconfig) CurrentCertificateBundle() (*CertificateBundle, error) {
 		cert = fmt.Sprintf("%s\n%s", cert, ca)
 	}
 
-	certificateBundle := &CertificateBundle{
-		Certificate: cert,
-		Key:         key,
+	credential := &Credential{
+		ClientCertificate: cert,
+		ClientKey:         key,
+		Token:             user.Token,
 	}
 
-	return certificateBundle, nil
-}
-
-func (k *Kubeconfig) CurrentUserToken() (string, error) {
-	cc, err := k.ReadCurrentContext()
-	if err != nil {
-		return "", err
-	}
-
-	user, err := k.ReadUser(cc.AuthInfo)
-	if err != nil {
-		return "", err
-	}
-
-	if len(user.Token) > 0 {
-		return user.Token, nil
-	}
-
-	return "", nil
+	return credential, nil
 }

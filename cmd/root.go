@@ -122,7 +122,12 @@ func (r *runner) run() ([]byte, error) {
 		}
 	}
 
-	opts, err := r.makeCredentialOptions()
+	kubeConfigCredential, err := r.kubeConfig.CurrentCredential()
+	if err != nil {
+		return nil, err
+	}
+
+	opts, err := r.makeCredentialOptions(kubeConfigCredential)
 	if err != nil {
 		return nil, err
 	}
@@ -145,22 +150,12 @@ func execCommand(cmdline string) error {
 	return nil
 }
 
-func (r *runner) makeCredentialOptions() (*credentials.CredentialOptions, error) {
-	opts := &credentials.CredentialOptions{}
-
-	certificateBundle, err := r.kubeConfig.CurrentCertificateBundle()
-	if err != nil {
-		return nil, err
+func (r *runner) makeCredentialOptions(kubeConfigCredential *kubeconfig.Credential) (*credentials.CredentialOptions, error) {
+	opts := &credentials.CredentialOptions{
+		ClientCertificateData: kubeConfigCredential.ClientCertificate,
+		ClientKeyData:         kubeConfigCredential.ClientKey,
+		Token:                 kubeConfigCredential.Token,
 	}
-
-	opts.ClientCertificateData = certificateBundle.Certificate
-	opts.ClientKeyData = certificateBundle.Key
-
-	token, err := r.kubeConfig.CurrentUserToken()
-	if err != nil {
-		return nil, err
-	}
-	opts.Token = token
 
 	if len(r.args.clientCertificatePath) > 0 {
 		buf, err := ioutil.ReadFile(r.args.clientCertificatePath)
