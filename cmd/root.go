@@ -152,7 +152,8 @@ func (r *runner) makeCredentialOptions() (*credentials.CredentialOptions, error)
 	if err != nil {
 		return nil, err
 	}
-	opts.ClientCertificateData = fmt.Sprintf("%s\n%s", certificateBundle.Certificate, certificateBundle.CA)
+
+	opts.ClientCertificateData = certificateBundle.Certificate
 	opts.ClientKeyData = certificateBundle.Key
 
 	token, err := r.kubeConfig.CurrentUserToken()
