@@ -15,7 +15,6 @@ type Kubeconfig struct {
 type CertificateBundle struct {
 	Certificate string
 	Key         string
-	CA          string
 }
 
 func New() *Kubeconfig {
@@ -97,8 +96,6 @@ func (k *Kubeconfig) ReadCurrentUserExecVersion() (string, error) {
 }
 
 func (k *Kubeconfig) CurrentCertificateBundle() (*CertificateBundle, error) {
-	certificateBundle := &CertificateBundle{}
-
 	cc, err := k.ReadCurrentContext()
 	if err != nil {
 		return nil, err
@@ -114,33 +111,44 @@ func (k *Kubeconfig) CurrentCertificateBundle() (*CertificateBundle, error) {
 		return nil, err
 	}
 
+	var cert string
+	var key string
+	var ca string
+
 	if len(user.ClientCertificateData) > 0 && len(user.ClientKeyData) > 0 {
-		certificateBundle.Certificate = string(user.ClientCertificateData)
-		certificateBundle.Key = string(user.ClientKeyData)
+		cert = string(user.ClientCertificateData)
+		key = string(user.ClientKeyData)
 	} else if len(user.ClientCertificate) > 0 && len(user.ClientKey) > 0 {
 		certBuf, err := ioutil.ReadFile(user.ClientCertificate)
 		if err != nil {
 			return nil, err
 		}
+		cert = string(certBuf)
 
 		keyBuf, err := ioutil.ReadFile(user.ClientKey)
 		if err != nil {
 			return nil, err
 		}
-
-		certificateBundle.Certificate = string(certBuf)
-		certificateBundle.Key = string(keyBuf)
+		key = string(keyBuf)
 	}
 
 	if len(cluster.CertificateAuthorityData) > 0 {
-		certificateBundle.CA = string(cluster.CertificateAuthorityData)
+		ca = string(cluster.CertificateAuthorityData)
 	} else if len(cluster.CertificateAuthority) > 0 {
 		caBuf, err := ioutil.ReadFile(cluster.CertificateAuthority)
 		if err != nil {
 			return nil, err
 		}
+		ca = string(caBuf)
+	}
 
-		certificateBundle.CA = string(caBuf)
+	if len(ca) > 0 {
+		cert = fmt.Sprintf("%s\n%s", cert, ca)
+	}
+
+	certificateBundle := &CertificateBundle{
+		Certificate: cert,
+		Key:         key,
 	}
 
 	return certificateBundle, nil

@@ -525,9 +525,8 @@ users:
 					"key":  keyFile.Name()}),
 			},
 			want: &CertificateBundle{
-				Certificate: "client-certificate-file-sample-string",
+				Certificate: "client-certificate-file-sample-string\ncertificate-authority-file-sample-string",
 				Key:         "client-key-file-sample-string",
-				CA:          "certificate-authority-file-sample-string",
 			},
 		},
 		{
@@ -561,9 +560,8 @@ users:
 					"key":  keyFile.Name()}),
 			},
 			want: &CertificateBundle{
-				Certificate: "client-certificate-data-sample-string",
+				Certificate: "client-certificate-data-sample-string\ncertificate-authority-data-sample-string",
 				Key:         "client-key-data-sample-string",
-				CA:          "certificate-authority-data-sample-string",
 			},
 		},
 		{
@@ -591,9 +589,39 @@ users:
     client-key-data: Y2xpZW50LWtleS1kYXRhLXNhbXBsZS1zdHJpbmc= #client-key-data-sample-string`,
 			},
 			want: &CertificateBundle{
-				Certificate: "client-certificate-data-sample-string",
+				Certificate: "client-certificate-data-sample-string\ncertificate-authority-data-sample-string",
 				Key:         "client-key-data-sample-string",
-				CA:          "certificate-authority-data-sample-string",
+			},
+		},
+		{
+			name: "empty certificate-authority",
+			fields: fields{
+				kubeconfigString: tmpl(`---
+apiVersion: v1
+kind: Config
+current-context: context1
+clusters:
+- cluster:
+    server: https://127.0.0.1
+  name: server1
+contexts:
+- context:
+    cluster: server1
+    namespace: kube-system
+    user: user1
+  name: context1
+users:
+- name: user1
+  user:
+    client-certificate: {{ .cert }}
+    client-key: {{ .key }}`, map[string]interface{}{
+					"ca":   caFile.Name(),
+					"cert": certFile.Name(),
+					"key":  keyFile.Name()}),
+			},
+			want: &CertificateBundle{
+				Certificate: "client-certificate-file-sample-string",
+				Key:         "client-key-file-sample-string",
 			},
 		},
 		{
@@ -620,7 +648,6 @@ users:
 			want: &CertificateBundle{
 				Certificate: "",
 				Key:         "",
-				CA:          "",
 			},
 		},
 		{
@@ -648,7 +675,6 @@ users:
 			want: &CertificateBundle{
 				Certificate: "",
 				Key:         "",
-				CA:          "",
 			},
 		},
 		{
@@ -677,7 +703,6 @@ users:
 			want: &CertificateBundle{
 				Certificate: "",
 				Key:         "",
-				CA:          "",
 			},
 		},
 		{
