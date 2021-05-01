@@ -7,7 +7,7 @@ import (
 
 func TestV1Beta1_ToJSON(t *testing.T) {
 	type args struct {
-		opts *CredentialOptions
+		opts *CredentialOption
 	}
 	tests := []struct {
 		name    string
@@ -18,7 +18,7 @@ func TestV1Beta1_ToJSON(t *testing.T) {
 	}{
 		{
 			name: "ok",
-			args: args{opts: &CredentialOptions{
+			args: args{opts: &CredentialOption{
 				ClientCertificateData: "hoge",
 				ClientKeyData:         "foo",
 				Token:                 "bar",

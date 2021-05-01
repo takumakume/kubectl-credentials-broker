@@ -9,7 +9,7 @@ import (
 
 type V1Beta1 struct{}
 
-func (o *V1Beta1) ToJSON(opts *CredentialOptions) ([]byte, error) {
+func (o *V1Beta1) ToJSON(opts *CredentialOption) ([]byte, error) {
 	status := &clientauthenticationv1beta1.ExecCredentialStatus{}
 	if len(opts.ClientCertificateData) > 0 {
 		status.ClientCertificateData = opts.ClientCertificateData

@@ -64,9 +64,9 @@ func init() {
 }
 
 type runner struct {
-	args       *arguments
-	cred       credentials.Credentials
-	kubeConfig *kubeconfig.Kubeconfig
+	args    *arguments
+	cred    credentials.Credential
+	credOpt *credentials.CredentialOption
 }
 
 type arguments struct {
@@ -92,15 +92,15 @@ func newRunner(args *arguments) (*runner, error) {
 		return nil, err
 	}
 
+	r := &runner{
+		args: args,
+	}
+
 	kubeConfig := kubeconfig.New()
+
 	execAPIVersion, err := kubeConfig.ReadCurrentUserExecVersion()
 	if err != nil {
 		return nil, err
-	}
-
-	r := &runner{
-		args:       args,
-		kubeConfig: kubeConfig,
 	}
 
 	switch execAPIVersion {
@@ -112,6 +112,17 @@ func newRunner(args *arguments) (*runner, error) {
 		return nil, fmt.Errorf("unsupported client authentication API version: %s", execAPIVersion)
 	}
 
+	kubeConfigCredential, err := kubeConfig.CurrentCredential()
+	if err != nil {
+		return nil, err
+	}
+
+	opt, err := makeCredentialOptions(args, kubeConfigCredential)
+	if err != nil {
+		return nil, err
+	}
+	r.credOpt = opt
+
 	return r, nil
 }
 
@@ -122,17 +133,7 @@ func (r *runner) run() ([]byte, error) {
 		}
 	}
 
-	kubeConfigCredential, err := r.kubeConfig.CurrentCredential()
-	if err != nil {
-		return nil, err
-	}
-
-	opts, err := r.makeCredentialOptions(kubeConfigCredential)
-	if err != nil {
-		return nil, err
-	}
-
-	buf, err := r.cred.ToJSON(opts)
+	buf, err := r.cred.ToJSON(r.credOpt)
 	if err != nil {
 		return nil, err
 	}
@@ -150,31 +151,31 @@ func execCommand(cmdline string) error {
 	return nil
 }
 
-func (r *runner) makeCredentialOptions(kubeConfigCredential *kubeconfig.Credential) (*credentials.CredentialOptions, error) {
-	opts := &credentials.CredentialOptions{
+func makeCredentialOptions(args *arguments, kubeConfigCredential *kubeconfig.Credential) (*credentials.CredentialOption, error) {
+	opts := &credentials.CredentialOption{
 		ClientCertificateData: kubeConfigCredential.ClientCertificate,
 		ClientKeyData:         kubeConfigCredential.ClientKey,
 		Token:                 kubeConfigCredential.Token,
 	}
 
-	if len(r.args.clientCertificatePath) > 0 {
-		buf, err := ioutil.ReadFile(r.args.clientCertificatePath)
+	if len(args.clientCertificatePath) > 0 {
+		buf, err := ioutil.ReadFile(args.clientCertificatePath)
 		if err != nil {
 			return nil, err
 		}
 		opts.ClientCertificateData = string(buf)
 	}
 
-	if len(r.args.clientKeyPath) > 0 {
-		buf, err := ioutil.ReadFile(r.args.clientKeyPath)
+	if len(args.clientKeyPath) > 0 {
+		buf, err := ioutil.ReadFile(args.clientKeyPath)
 		if err != nil {
 			return nil, err
 		}
 		opts.ClientKeyData = string(buf)
 	}
 
-	if len(r.args.tokenPath) > 0 {
-		buf, err := ioutil.ReadFile(r.args.tokenPath)
+	if len(args.tokenPath) > 0 {
+		buf, err := ioutil.ReadFile(args.tokenPath)
 		if err != nil {
 			return nil, err
 		}
