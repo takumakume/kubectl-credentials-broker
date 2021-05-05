@@ -9,7 +9,8 @@ import (
 )
 
 type Kubeconfig struct {
-	clientConfig clientcmd.ClientConfig
+	clientConfig   clientcmd.ClientConfig
+	configFilePath string
 }
 
 type Credential struct {
@@ -19,8 +20,12 @@ type Credential struct {
 }
 
 func New() *Kubeconfig {
+	rules := clientcmd.NewDefaultClientConfigLoadingRules()
+	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, &clientcmd.ConfigOverrides{})
+
 	return &Kubeconfig{
-		clientConfig: clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{}),
+		clientConfig:   clientConfig,
+		configFilePath: rules.GetLoadingPrecedence()[0],
 	}
 }
 
@@ -154,4 +159,53 @@ func (k *Kubeconfig) CurrentCredential() (*Credential, error) {
 	}
 
 	return credential, nil
+}
+
+func (k *Kubeconfig) UpdateCurrentUserExecConfig(apiVersion, cmd string, args []string, envs map[string]string) error {
+	cc, err := k.ReadCurrentContext()
+	if err != nil {
+		return err
+	}
+
+	rawConfig, err := k.clientConfig.RawConfig()
+	if err != nil {
+		return err
+	}
+
+	if rawConfig.AuthInfos[cc.AuthInfo] == nil {
+		return fmt.Errorf("'%s' user was not found in your kubeconfig", cc.AuthInfo)
+	}
+
+	envVars := []api.ExecEnvVar{}
+	for name, value := range envs {
+		envVars = append(envVars, api.ExecEnvVar{
+			Name:  name,
+			Value: value,
+		})
+	}
+
+	rawConfig.AuthInfos[cc.AuthInfo].Exec = &api.ExecConfig{
+		APIVersion: apiVersion,
+		Command:    cmd,
+		Args:       args,
+		Env:        envVars,
+	}
+
+	if err := k.write(rawConfig); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (k *Kubeconfig) write(rawConfig api.Config) error {
+	if err := clientcmd.Validate(rawConfig); err != nil {
+		return err
+	}
+
+	if err := clientcmd.WriteToFile(rawConfig, k.configFilePath); err != nil {
+		return err
+	}
+
+	return nil
 }

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"text/template"
 
+	"github.com/google/go-cmp/cmp"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
@@ -750,6 +751,118 @@ users:
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Kubeconfig.CurrentCredential() = %+v, want %+v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestKubeconfig_UpdateCurrentUserExecConfig(t *testing.T) {
+	type fields struct {
+		kubeconfigString string
+	}
+	type args struct {
+		apiVersion string
+		cmd        string
+		args       []string
+		envs       map[string]string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "ok",
+			args: args{
+				apiVersion: "client.authentication.k8s.io/v1beta1",
+				cmd:        "/cmd",
+				args:       []string{"-args1", "-args2"},
+				envs:       map[string]string{"ENV1": "val1"},
+			},
+			fields: fields{
+				kubeconfigString: `apiVersion: v1
+clusters:
+- cluster:
+    server: https://127.0.0.1
+  name: server1
+contexts:
+- context:
+    cluster: server1
+    namespace: kube-system
+    user: user1
+  name: context1
+current-context: context1
+kind: Config
+preferences: {}
+users:
+- name: user1
+  user:
+    token: hoge
+`,
+			},
+			want: `apiVersion: v1
+clusters:
+- cluster:
+    server: https://127.0.0.1
+  name: server1
+contexts:
+- context:
+    cluster: server1
+    namespace: kube-system
+    user: user1
+  name: context1
+current-context: context1
+kind: Config
+preferences: {}
+users:
+- name: user1
+  user:
+    exec:
+      apiVersion: client.authentication.k8s.io/v1beta1
+      args:
+      - -args1
+      - -args2
+      command: /cmd
+      env:
+      - name: ENV1
+        value: val1
+      provideClusterInfo: false
+    token: hoge
+`,
+		},
+	}
+
+	testDir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Errorf("TempDir() error = %v", err)
+		return
+	}
+	defer os.Remove(testDir)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			kubeConfigFile, err := ioutil.TempFile(testDir, "-kubeconfig")
+			if _, err = kubeConfigFile.Write([]byte(tt.fields.kubeconfigString)); err != nil {
+				t.Errorf("ioutil.Write() error = %v", err)
+				return
+			}
+			os.Setenv("KUBECONFIG", kubeConfigFile.Name())
+
+			k := New()
+			if err := k.UpdateCurrentUserExecConfig(tt.args.apiVersion, tt.args.cmd, tt.args.args, tt.args.envs); (err != nil) != tt.wantErr {
+				t.Errorf("Kubeconfig.UpdateCurrentUserExecConfig() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			buf, err := ioutil.ReadFile(kubeConfigFile.Name())
+			if err != nil {
+				t.Errorf("ioutil.ReadFile() error = %v", err)
+			}
+			got := string(buf)
+			if d := cmp.Diff(tt.want, got); d != "" {
+				t.Errorf("Kubeconfig.UpdateCurrentUserExecConfig() mismatch:\n%s", d)
 			}
 		})
 	}
