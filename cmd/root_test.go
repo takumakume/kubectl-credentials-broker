@@ -10,7 +10,7 @@ import (
 	"github.com/takumakume/kubectl-credentials-broker/kubeconfig"
 )
 
-func Test_arguments_validate(t *testing.T) {
+func Test_rootCmdArgs_validate(t *testing.T) {
 	type fields struct {
 		clientCertificatePath string
 		clientKeyPath         string
@@ -82,14 +82,14 @@ func Test_arguments_validate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			args := &arguments{
+			args := &rootCmdArgs{
 				clientCertificatePath: tt.fields.clientCertificatePath,
 				clientKeyPath:         tt.fields.clientKeyPath,
 				tokenPath:             tt.fields.tokenPath,
 				beforeExecCommand:     tt.fields.beforeExecCommand,
 			}
 			if err := args.validate(); (err != nil) != tt.wantErr {
-				t.Errorf("arguments.validate() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("rootCmdArgs.validate() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
@@ -110,7 +110,7 @@ func TestRun(t *testing.T) {
 	}
 
 	type args struct {
-		arguments      arguments
+		rootCmdArgs    rootCmdArgs
 		kubeconfigData string
 	}
 	tests := []struct {
@@ -122,7 +122,7 @@ func TestRun(t *testing.T) {
 		{
 			name: "API version: client.authentication.k8s.io/v1beta1",
 			args: args{
-				arguments: arguments{
+				rootCmdArgs: rootCmdArgs{
 					tokenPath: tokenFile.Name(),
 				},
 				kubeconfigData: `---
@@ -150,7 +150,7 @@ users:
 		{
 			name: "API version: client.authentication.k8s.io/v1alpha1",
 			args: args{
-				arguments: arguments{
+				rootCmdArgs: rootCmdArgs{
 					tokenPath: tokenFile.Name(),
 				},
 				kubeconfigData: `---
@@ -192,7 +192,7 @@ users:
 			}
 			os.Setenv("KUBECONFIG", kubeconfigFile.Name())
 
-			runner, err := newRunner(&tt.args.arguments)
+			runner, err := newRootCmdRunner(&tt.args.rootCmdArgs)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Run newRunner() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -242,7 +242,7 @@ func Test_makeCredentialOptions(t *testing.T) {
 	}
 
 	type args struct {
-		args                 *arguments
+		args                 *rootCmdArgs
 		kubeConfigCredential *kubeconfig.Credential
 	}
 	tests := []struct {
@@ -254,7 +254,7 @@ func Test_makeCredentialOptions(t *testing.T) {
 		{
 			name: "args certificate/key and token overrides kubeconfig value",
 			args: args{
-				args: &arguments{
+				args: &rootCmdArgs{
 					clientCertificatePath: certFile.Name(),
 					clientKeyPath:         keyFile.Name(),
 					tokenPath:             tokenFile.Name(),
@@ -274,7 +274,7 @@ func Test_makeCredentialOptions(t *testing.T) {
 		{
 			name: "args certificate/key overrides kubeconfig value",
 			args: args{
-				args: &arguments{
+				args: &rootCmdArgs{
 					clientCertificatePath: certFile.Name(),
 					clientKeyPath:         keyFile.Name(),
 				},
@@ -293,7 +293,7 @@ func Test_makeCredentialOptions(t *testing.T) {
 		{
 			name: "args token overrides kubeconfig value",
 			args: args{
-				args: &arguments{
+				args: &rootCmdArgs{
 					tokenPath: tokenFile.Name(),
 				},
 				kubeConfigCredential: &kubeconfig.Credential{
@@ -311,7 +311,7 @@ func Test_makeCredentialOptions(t *testing.T) {
 		{
 			name: "kubeconfig.Credential is empty",
 			args: args{
-				args: &arguments{
+				args: &rootCmdArgs{
 					clientCertificatePath: certFile.Name(),
 					clientKeyPath:         keyFile.Name(),
 					tokenPath:             tokenFile.Name(),

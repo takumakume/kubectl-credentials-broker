@@ -26,7 +26,7 @@ var rootCmd = &cobra.Command{
 	Long:    "credentials-broker",
 	Version: "0.0.1",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		r, err := newRunner(&arguments{
+		r, err := newRootCmdRunner(&rootCmdArgs{
 			clientCertificatePath: argsClientCertificatePath,
 			clientKeyPath:         argsClientKeyPath,
 			tokenPath:             argsTokenPath,
@@ -63,20 +63,20 @@ func init() {
 	rootCmd.Flags().StringVarP(&argsBeforeExecCommand, "before-exec-command", "", "", "A command line to run before responding to the credential plugin. For example, it can be used to update certificate and token files. (optional)")
 }
 
-type runner struct {
-	args    *arguments
+type rootCmdRunner struct {
+	args    *rootCmdArgs
 	cred    credentials.Credential
 	credOpt *credentials.CredentialOption
 }
 
-type arguments struct {
+type rootCmdArgs struct {
 	clientCertificatePath string
 	clientKeyPath         string
 	tokenPath             string
 	beforeExecCommand     string
 }
 
-func (args *arguments) validate() error {
+func (args *rootCmdArgs) validate() error {
 	switch {
 	case args.clientCertificatePath == "" && args.clientKeyPath == "" && args.tokenPath == "":
 		return errors.New("requires either certificate token")
@@ -87,12 +87,12 @@ func (args *arguments) validate() error {
 	return nil
 }
 
-func newRunner(args *arguments) (*runner, error) {
+func newRootCmdRunner(args *rootCmdArgs) (*rootCmdRunner, error) {
 	if err := args.validate(); err != nil {
 		return nil, err
 	}
 
-	r := &runner{
+	r := &rootCmdRunner{
 		args: args,
 	}
 
@@ -104,9 +104,9 @@ func newRunner(args *arguments) (*runner, error) {
 	}
 
 	switch execAPIVersion {
-	case "client.authentication.k8s.io/v1beta1":
+	case (&credentials.V1Beta1{}).APIVersionString():
 		r.cred = &credentials.V1Beta1{}
-	case "client.authentication.k8s.io/v1alpha1":
+	case (&credentials.V1Alpha1{}).APIVersionString():
 		r.cred = &credentials.V1Alpha1{}
 	default:
 		return nil, fmt.Errorf("unsupported client authentication API version: %s", execAPIVersion)
@@ -126,7 +126,7 @@ func newRunner(args *arguments) (*runner, error) {
 	return r, nil
 }
 
-func (r *runner) run() ([]byte, error) {
+func (r *rootCmdRunner) run() ([]byte, error) {
 	if len(r.args.beforeExecCommand) > 0 {
 		if err := execCommand(r.args.beforeExecCommand); err != nil {
 			return nil, err
@@ -151,7 +151,7 @@ func execCommand(cmdline string) error {
 	return nil
 }
 
-func makeCredentialOptions(args *arguments, kubeConfigCredential *kubeconfig.Credential) (*credentials.CredentialOption, error) {
+func makeCredentialOptions(args *rootCmdArgs, kubeConfigCredential *kubeconfig.Credential) (*credentials.CredentialOption, error) {
 	opts := &credentials.CredentialOption{
 		ClientCertificateData: kubeConfigCredential.ClientCertificate,
 		ClientKeyData:         kubeConfigCredential.ClientKey,
