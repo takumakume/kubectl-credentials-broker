@@ -9,6 +9,10 @@ import (
 
 type V1Beta1 struct{}
 
+func (o *V1Beta1) APIVersionString() string {
+	return "client.authentication.k8s.io/v1beta1"
+}
+
 func (o *V1Beta1) ToJSON(opts *CredentialOption) ([]byte, error) {
 	status := &clientauthenticationv1beta1.ExecCredentialStatus{}
 	if len(opts.ClientCertificateData) > 0 {
