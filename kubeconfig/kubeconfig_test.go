@@ -536,7 +536,6 @@ users:
       - name: ENV1
         value: val1
       provideClusterInfo: false
-    token: hoge
 `,
 		},
 	}

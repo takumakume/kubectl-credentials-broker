@@ -130,6 +130,8 @@ func (k *Kubeconfig) UpdateCurrentUserExecConfig(apiVersion, cmd string, args []
 		Env:        envVars,
 	}
 
+	rawConfig.AuthInfos[cc.AuthInfo].Token = ""
+
 	if err := k.write(rawConfig); err != nil {
 		return err
 	}
