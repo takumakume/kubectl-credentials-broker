@@ -2,7 +2,6 @@ package kubeconfig
 
 import (
 	"fmt"
-	"io/ioutil"
 
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
@@ -99,66 +98,6 @@ func (k *Kubeconfig) ReadCurrentUserExecVersion() (string, error) {
 	}
 
 	return user.Exec.APIVersion, nil
-}
-
-func (k *Kubeconfig) CurrentCredential() (*Credential, error) {
-	cc, err := k.ReadCurrentContext()
-	if err != nil {
-		return nil, err
-	}
-
-	user, err := k.ReadUser(cc.AuthInfo)
-	if err != nil {
-		return nil, err
-	}
-
-	cluster, err := k.ReadCluster(cc.Cluster)
-	if err != nil {
-		return nil, err
-	}
-
-	var cert string
-	var key string
-	var ca string
-
-	if len(user.ClientCertificateData) > 0 && len(user.ClientKeyData) > 0 {
-		cert = string(user.ClientCertificateData)
-		key = string(user.ClientKeyData)
-	} else if len(user.ClientCertificate) > 0 && len(user.ClientKey) > 0 {
-		certBuf, err := ioutil.ReadFile(user.ClientCertificate)
-		if err != nil {
-			return nil, err
-		}
-		cert = string(certBuf)
-
-		keyBuf, err := ioutil.ReadFile(user.ClientKey)
-		if err != nil {
-			return nil, err
-		}
-		key = string(keyBuf)
-	}
-
-	if len(cluster.CertificateAuthorityData) > 0 {
-		ca = string(cluster.CertificateAuthorityData)
-	} else if len(cluster.CertificateAuthority) > 0 {
-		caBuf, err := ioutil.ReadFile(cluster.CertificateAuthority)
-		if err != nil {
-			return nil, err
-		}
-		ca = string(caBuf)
-	}
-
-	if len(ca) > 0 {
-		cert = fmt.Sprintf("%s\n%s", cert, ca)
-	}
-
-	credential := &Credential{
-		ClientCertificate: cert,
-		ClientKey:         key,
-		Token:             user.Token,
-	}
-
-	return credential, nil
 }
 
 func (k *Kubeconfig) UpdateCurrentUserExecConfig(apiVersion, cmd string, args []string, envs map[string]string) error {

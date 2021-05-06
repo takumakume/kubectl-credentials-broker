@@ -20,6 +20,8 @@ var (
 	argsBeforeExecCommand     string
 )
 
+const commandName = "credentials-broker"
+
 var rootCmd = &cobra.Command{
 	Use:     "credentials-broker",
 	Short:   "credentials-broker",
@@ -64,9 +66,8 @@ func init() {
 }
 
 type rootCmdRunner struct {
-	args    *rootCmdArgs
-	cred    credentials.Credential
-	credOpt *credentials.CredentialOption
+	args *rootCmdArgs
+	cred credentials.Credential
 }
 
 type rootCmdArgs struct {
@@ -96,9 +97,7 @@ func newRootCmdRunner(args *rootCmdArgs) (*rootCmdRunner, error) {
 		args: args,
 	}
 
-	kubeConfig := kubeconfig.New()
-
-	execAPIVersion, err := kubeConfig.ReadCurrentUserExecVersion()
+	execAPIVersion, err := kubeconfig.New().ReadCurrentUserExecVersion()
 	if err != nil {
 		return nil, err
 	}
@@ -112,17 +111,6 @@ func newRootCmdRunner(args *rootCmdArgs) (*rootCmdRunner, error) {
 		return nil, fmt.Errorf("unsupported client authentication API version: %s", execAPIVersion)
 	}
 
-	kubeConfigCredential, err := kubeConfig.CurrentCredential()
-	if err != nil {
-		return nil, err
-	}
-
-	opt, err := makeCredentialOptions(args, kubeConfigCredential)
-	if err != nil {
-		return nil, err
-	}
-	r.credOpt = opt
-
 	return r, nil
 }
 
@@ -133,7 +121,12 @@ func (r *rootCmdRunner) run() ([]byte, error) {
 		}
 	}
 
-	buf, err := r.cred.ToJSON(r.credOpt)
+	opt, err := makeCredentialOptions(r.args)
+	if err != nil {
+		return nil, err
+	}
+
+	buf, err := r.cred.ToJSON(opt)
 	if err != nil {
 		return nil, err
 	}
@@ -151,12 +144,8 @@ func execCommand(cmdline string) error {
 	return nil
 }
 
-func makeCredentialOptions(args *rootCmdArgs, kubeConfigCredential *kubeconfig.Credential) (*credentials.CredentialOption, error) {
-	opts := &credentials.CredentialOption{
-		ClientCertificateData: kubeConfigCredential.ClientCertificate,
-		ClientKeyData:         kubeConfigCredential.ClientKey,
-		Token:                 kubeConfigCredential.Token,
-	}
+func makeCredentialOptions(args *rootCmdArgs) (*credentials.CredentialOption, error) {
+	opts := &credentials.CredentialOption{}
 
 	if len(args.clientCertificatePath) > 0 {
 		buf, err := ioutil.ReadFile(args.clientCertificatePath)

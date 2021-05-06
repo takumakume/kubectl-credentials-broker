@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/takumakume/kubectl-credentials-broker/credentials"
-	"github.com/takumakume/kubectl-credentials-broker/kubeconfig"
 )
 
 func Test_rootCmdArgs_validate(t *testing.T) {
@@ -242,8 +241,7 @@ func Test_makeCredentialOptions(t *testing.T) {
 	}
 
 	type args struct {
-		args                 *rootCmdArgs
-		kubeConfigCredential *kubeconfig.Credential
+		args *rootCmdArgs
 	}
 	tests := []struct {
 		name    string
@@ -252,17 +250,12 @@ func Test_makeCredentialOptions(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "args certificate/key and token overrides kubeconfig value",
+			name: "args certificate/key and token",
 			args: args{
 				args: &rootCmdArgs{
 					clientCertificatePath: certFile.Name(),
 					clientKeyPath:         keyFile.Name(),
 					tokenPath:             tokenFile.Name(),
-				},
-				kubeConfigCredential: &kubeconfig.Credential{
-					ClientCertificate: "client-certificate-from-kubeconfig\ncertificate-authority-from-kubeconfig",
-					ClientKey:         "client-key-from-kubeconfig",
-					Token:             "token-from-kubeconfig",
 				},
 			},
 			want: &credentials.CredentialOption{
@@ -272,62 +265,33 @@ func Test_makeCredentialOptions(t *testing.T) {
 			},
 		},
 		{
-			name: "args certificate/key overrides kubeconfig value",
+			name: "args certificate/key",
 			args: args{
 				args: &rootCmdArgs{
 					clientCertificatePath: certFile.Name(),
 					clientKeyPath:         keyFile.Name(),
 				},
-				kubeConfigCredential: &kubeconfig.Credential{
-					ClientCertificate: "client-certificate-from-kubeconfig\ncertificate-authority-from-kubeconfig",
-					ClientKey:         "client-key-from-kubeconfig",
-					Token:             "token-from-kubeconfig",
-				},
 			},
 			want: &credentials.CredentialOption{
 				ClientCertificateData: "client-certificate-from-file",
 				ClientKeyData:         "client-key-from-file",
-				Token:                 "token-from-kubeconfig",
 			},
 		},
 		{
-			name: "args token overrides kubeconfig value",
+			name: "args token",
 			args: args{
 				args: &rootCmdArgs{
 					tokenPath: tokenFile.Name(),
 				},
-				kubeConfigCredential: &kubeconfig.Credential{
-					ClientCertificate: "client-certificate-from-kubeconfig\ncertificate-authority-from-kubeconfig",
-					ClientKey:         "client-key-from-kubeconfig",
-					Token:             "token-from-kubeconfig",
-				},
 			},
 			want: &credentials.CredentialOption{
-				ClientCertificateData: "client-certificate-from-kubeconfig\ncertificate-authority-from-kubeconfig",
-				ClientKeyData:         "client-key-from-kubeconfig",
-				Token:                 "token-from-file",
-			},
-		},
-		{
-			name: "kubeconfig.Credential is empty",
-			args: args{
-				args: &rootCmdArgs{
-					clientCertificatePath: certFile.Name(),
-					clientKeyPath:         keyFile.Name(),
-					tokenPath:             tokenFile.Name(),
-				},
-				kubeConfigCredential: &kubeconfig.Credential{},
-			},
-			want: &credentials.CredentialOption{
-				ClientCertificateData: "client-certificate-from-file",
-				ClientKeyData:         "client-key-from-file",
-				Token:                 "token-from-file",
+				Token: "token-from-file",
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := makeCredentialOptions(tt.args.args, tt.args.kubeConfigCredential)
+			got, err := makeCredentialOptions(tt.args.args)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("makeCredentialOptions() error = %+v, wantErr %+v", err, tt.wantErr)
 				return
