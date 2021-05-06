@@ -37,7 +37,7 @@ var configSetCmd = &cobra.Command{
 	Short: "set",
 	Long:  "set",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		opt := &kubeconfigCmdArgs{
+		return kubeconfigSet(&kubeconfigCmdArgs{
 			rootCmdArgs: rootCmdArgs{
 				clientCertificatePath: argsKubeconfigClientCertificatePath,
 				clientKeyPath:         argsKubeconfigClientKeyPath,
@@ -46,13 +46,7 @@ var configSetCmd = &cobra.Command{
 			},
 			execAPIVersion: argsKubeconfigExecAPIVersion,
 			env:            argsKubeconfigEnv,
-		}
-
-		if err := opt.validate(); err != nil {
-			return err
-		}
-
-		return kubeconfigSet(opt)
+		})
 	},
 }
 
@@ -74,14 +68,39 @@ func (args *kubeconfigCmdArgs) validate() error {
 	return nil
 }
 
+func (args *kubeconfigCmdArgs) makePluginCommand() ([]string, error) {
+	c := []string{commandName}
+
+	if len(args.beforeExecCommand) > 0 {
+		quotedCmd, err := shellquote.Split(args.beforeExecCommand)
+		if err != nil {
+			return nil, err
+		}
+		c = append(c, "--before-exec-command")
+		c = append(c, quotedCmd...)
+	}
+	if len(args.clientCertificatePath) > 0 {
+		c = append(c, "--client-certificate-path", args.clientCertificatePath)
+	}
+	if len(args.clientKeyPath) > 0 {
+		c = append(c, "--client-key-path", args.clientKeyPath)
+	}
+	if len(args.tokenPath) > 0 {
+		c = append(c, "--token-path", args.tokenPath)
+	}
+
+	return c, nil
+}
+
 func kubeconfigSet(args *kubeconfigCmdArgs) error {
 	k := kubeconfig.New()
-	cmd, cmdArgs, err := splitCommand(args.beforeExecCommand)
+
+	pluginCmd, err := args.makePluginCommand()
 	if err != nil {
 		return err
 	}
 
-	if err := k.UpdateCurrentUserExecConfig(args.execAPIVersion, cmd, cmdArgs, args.env); err != nil {
+	if err := k.UpdateCurrentUserExecConfig(args.execAPIVersion, "kubectl", pluginCmd, args.env); err != nil {
 		return err
 	}
 
