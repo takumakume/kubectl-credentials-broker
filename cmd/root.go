@@ -13,6 +13,8 @@ import (
 	"github.com/takumakume/kubectl-credentials-broker/kubeconfig"
 )
 
+var version = "dev"
+
 var (
 	argsClientCertificatePath string
 	argsClientKeyPath         string
