@@ -1,6 +1,8 @@
 # kubectl-credentials-broker
 
-This software is:
+[![CI](https://github.com/takumakume/kubectl-credentials-broker/actions/workflows/ci.yml/badge.svg)](https://github.com/takumakume/kubectl-credentials-broker/actions/workflows/ci.yml)
+
+**This software is:**
 
 - Cli tool to work as kubectl plugin.
 - To work as `client-go credential plugin` .
