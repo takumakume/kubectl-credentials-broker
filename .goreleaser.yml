@@ -29,6 +29,8 @@ brews:
       email: takuma.kume@gmail.com
     homepage: https://github.com/takumakume/kubectl-credentials-broker
     description: Before kubectl run execute any command provides credential to kubectl
+    install: |
+      bin.install "kubectl-credentials_broker"
 checksum:
   name_template: 'checksums.txt'
 snapshot:
