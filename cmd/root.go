@@ -170,8 +170,17 @@ func makeCredentialOptions(args *rootCmdArgs) (*credentials.CredentialOption, er
 		if err != nil {
 			return nil, err
 		}
-		opts.Token = string(buf)
+		opts.Token = chop(string(buf))
 	}
 
 	return opts, nil
+}
+
+func chop(s string) string {
+	s = strings.TrimRight(s, "\n")
+	if strings.HasSuffix(s, "\r") {
+		s = strings.TrimRight(s, "\r")
+	}
+
+	return s
 }

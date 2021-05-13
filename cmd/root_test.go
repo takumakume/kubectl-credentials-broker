@@ -302,3 +302,37 @@ func Test_makeCredentialOptions(t *testing.T) {
 		})
 	}
 }
+
+func Test_chop(t *testing.T) {
+	type args struct {
+		s string
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "remove last return code",
+			args: args{s: "string\n"},
+			want: "string",
+		},
+		{
+			name: "remove only last return code",
+			args: args{s: "string1\nstring2\n"},
+			want: "string1\nstring2",
+		},
+		{
+			name: "remove CR",
+			args: args{s: "string\r\n"},
+			want: "string",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := chop(tt.args.s); got != tt.want {
+				t.Errorf("chop() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
