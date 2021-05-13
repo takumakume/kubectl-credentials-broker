@@ -9,6 +9,7 @@ builds:
       - linux
       - windows
       - darwin
+    binary: kubectl-credentials_broker
     ldflags:
       - -w -s -X github.com/takumakume/kubectl-credentials-broker/cmd.Version={{.Version}}
 archives:
@@ -18,6 +19,16 @@ archives:
       windows: Windows
       386: i386
       amd64: x86_64
+brews:
+  - name: kubectl-credentials-broker
+    tap:
+      owner: takumakume
+      name: homebrew-tap
+    commit_author:
+      name: takumakume
+      email: takuma.kume@gmail.com
+    homepage: https://github.com/takumakume/kubectl-credentials-broker
+    description: Before kubectl run execute any command provides credential to kubectl
 checksum:
   name_template: 'checksums.txt'
 snapshot:
