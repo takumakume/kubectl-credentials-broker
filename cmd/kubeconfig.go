@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/Songmu/prompter"
 	"github.com/kballard/go-shellquote"
 	"github.com/spf13/cobra"
 	"github.com/takumakume/kubectl-credentials-broker/credentials"
@@ -14,6 +15,7 @@ var defaultExecAPIVersion = (&credentials.V1Beta1{}).APIVersionString()
 type kubeconfigCmdArgs struct {
 	execAPIVersion string
 	env            map[string]string
+	force          bool
 	rootCmdArgs
 }
 
@@ -24,6 +26,7 @@ var (
 	argsKubeconfigBeforeExecCommand     string
 	argsKubeconfigExecAPIVersion        string
 	argsKubeconfigEnv                   map[string]string
+	argsKubeconfigForce                 bool
 )
 
 var configCmd = &cobra.Command{
@@ -37,7 +40,7 @@ var configSetCmd = &cobra.Command{
 	Short: "set",
 	Long:  "set",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return kubeconfigSet(&kubeconfigCmdArgs{
+		opt := &kubeconfigCmdArgs{
 			rootCmdArgs: rootCmdArgs{
 				clientCertificatePath: argsKubeconfigClientCertificatePath,
 				clientKeyPath:         argsKubeconfigClientKeyPath,
@@ -46,7 +49,13 @@ var configSetCmd = &cobra.Command{
 			},
 			execAPIVersion: argsKubeconfigExecAPIVersion,
 			env:            argsKubeconfigEnv,
-		})
+			force:          argsKubeconfigForce,
+		}
+		if err := opt.validate(); err != nil {
+			return err
+		}
+
+		return kubeconfigSet(opt)
 	},
 }
 
@@ -57,6 +66,7 @@ func init() {
 	configSetCmd.Flags().StringVarP(&argsKubeconfigBeforeExecCommand, "before-exec-command", "", "", "A command line to run before responding to the credential plugin. For example, it can be used to update certificate and token files. (optional)")
 	configSetCmd.Flags().StringVarP(&argsKubeconfigExecAPIVersion, "exec-api-version", "", defaultExecAPIVersion, fmt.Sprintf("API version to use when decoding the ExecCredentials resource (Default: %s)", defaultExecAPIVersion))
 	configSetCmd.Flags().StringToStringVarP(&argsKubeconfigEnv, "env", "", map[string]string{}, "Environment variables to set when running the plugin. (optional) ex. 'HOGE=huga,FOO=bar'")
+	configSetCmd.Flags().BoolVarP(&argsKubeconfigForce, "force", "f", false, "Do not confirm overwriting of kubeconfig (Default: false)")
 	configCmd.AddCommand(configSetCmd)
 	rootCmd.AddCommand(configCmd)
 }
@@ -100,10 +110,33 @@ func kubeconfigSet(args *kubeconfigCmdArgs) error {
 		return err
 	}
 
-	if err := k.UpdateCurrentUserExecConfig(args.execAPIVersion, "kubectl", pluginCmd, args.env); err != nil {
+	diff, err := k.UpdateCurrentUserExecConfigDryRun(args.execAPIVersion, "kubectl", pluginCmd, args.env)
+	if err != nil {
 		return err
 	}
 
+	if diff == "" {
+		fmt.Println("current kubeconfig is up to date")
+		return nil
+	}
+
+	fmt.Printf("---\n%s", diff)
+	if args.force {
+		if err := k.UpdateCurrentUserExecConfig(args.execAPIVersion, "kubectl", pluginCmd, args.env); err != nil {
+			return err
+		}
+	} else {
+		if prompter.YesNo("---\ncontinue? (y/N)", false) {
+			if err := k.UpdateCurrentUserExecConfig(args.execAPIVersion, "kubectl", pluginCmd, args.env); err != nil {
+				return err
+			}
+		} else {
+			fmt.Println("---\ncanceled update kubeconfig")
+			return nil
+		}
+	}
+
+	fmt.Println("---\nupdate successful")
 	return nil
 }
 
