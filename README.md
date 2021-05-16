@@ -10,3 +10,13 @@
 - It can update the client-certificate / key and token by executing any command.
 
 ![image](docs/credentials-broker.jpeg)
+
+
+
+# Install
+
+## OSX
+
+```sh
+$ brew install takumakume/tap/kubectl-credentials-broker
+```
