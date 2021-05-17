@@ -3,21 +3,49 @@ before:
     - go mod tidy
     - go generate ./...
 builds:
-  - env:
+  -
+    id: kubectl-credentials-broker
+    env:
       - CGO_ENABLED=0
     goos:
-      - linux
       - windows
       - darwin
+    goarch:
+      - amd64
     binary: kubectl-credentials_broker
     ldflags:
       - -w -s -X github.com/takumakume/kubectl-credentials-broker/cmd.Version={{.Version}}
+  -
+    id: kubectl-credentials-broker-linux
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+    binary: kubectl-credentials_broker
+    ldflags:
+      - -w -s -X github.com/takumakume/kubectl-credentials-broker/cmd.Version={{.Version}}
+nfpms:
+  -
+    id: kubectl-credentials-broker-nfpms
+    builds:
+    - kubectl-credentials-broker-linux
+    file_name_template: "{{ .ProjectName }}_{{ .Version }}-1_{{ .Arch }}"
+    homepage: https://github.com/takumakume/kubectl-credentials-broker
+    maintainer: Takuma Kume <takuma.kume@gmail.com>
+    description: This tool is a kubectl plugin that supports updating credentials with kube-apiserver
+    license: MIT
+    formats:
+      - apk
+      - deb
+      - rpm
+    epoch: 1
 archives:
   - replacements:
       darwin: Darwin
       linux: Linux
       windows: Windows
-      386: i386
       amd64: x86_64
 brews:
   - name: kubectl-credentials-broker
