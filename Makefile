@@ -14,7 +14,9 @@ depsdev:
 	go get github.com/Songmu/ghch/cmd/ghch
 	go get github.com/Songmu/gocredits/cmd/gocredits
 
-prerelease:
+prerelease: check-version
+	go mod tidy
+	go generate ./...
 	git pull origin --tag
 	ghch -w -N ${VERSION}
 	gocredits . > CREDITS
@@ -24,3 +26,10 @@ prerelease:
 
 release:
 	goreleaser --rm-dist
+
+check-version:
+ifndef VERSION
+	@echo 'VERSION is not set'
+	@exit 1
+endif
+	@echo "VERSION: $$VERSION"

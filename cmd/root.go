@@ -13,7 +13,7 @@ import (
 	"github.com/takumakume/kubectl-credentials-broker/kubeconfig"
 )
 
-var version = "dev"
+var Version = "dev"
 
 var (
 	argsClientCertificatePath string
@@ -28,7 +28,7 @@ var rootCmd = &cobra.Command{
 	Use:     "credentials-broker",
 	Short:   "credentials-broker",
 	Long:    "credentials-broker",
-	Version: "0.0.1",
+	Version: Version,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := newRootCmdRunner(&rootCmdArgs{
 			clientCertificatePath: argsClientCertificatePath,
