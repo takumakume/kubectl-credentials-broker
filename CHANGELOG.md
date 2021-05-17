@@ -1,5 +1,8 @@
 # Changelog
 
+## [v0.1.0](https://github.com/takumakume/kubectl-credentials-broker/compare/0.0.6...v0.1.0) (2021-05-17)
+
+
 ## [0.0.6](https://github.com/takumakume/kubectl-credentials-broker/compare/0.0.5...0.0.6) (2021-05-17)
 
 
