@@ -37,8 +37,8 @@ var configCmd = &cobra.Command{
 
 var configSetCmd = &cobra.Command{
 	Use:   "set",
-	Short: "set",
-	Long:  "set",
+	Short: "This command adds an exec command to the current-context user.",
+	Long:  "This command adds an exec command to the current-context user.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		opt := &kubeconfigCmdArgs{
 			rootCmdArgs: rootCmdArgs{

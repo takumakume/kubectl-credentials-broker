@@ -28,7 +28,7 @@ There is nothing even to run alone.
 
 ```sh
 $ kubectl credentials-broker --help
-credentials-broker
+This tool is a kubectl plugin that supports updating credentials with kube-apiserver. via client-go credentials pluigin. There is nothing even to run alone.
 
 Usage:
   credentials-broker [flags]
@@ -146,11 +146,11 @@ users:
 
 ## `credentials-broker kubeconfig set` command
 
-このコマンドはcurrent-contextのuserにexec commandを追加します。
+This command adds an exec command to the current-context user.
 
 ```
 $ kubectl credentials-broker kubeconfig set
-set
+This command adds an exec command to the current-context user.
 
 Usage:
   credentials-broker kubeconfig set [flags]

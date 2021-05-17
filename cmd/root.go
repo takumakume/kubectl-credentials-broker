@@ -26,8 +26,8 @@ const commandName = "credentials-broker"
 
 var rootCmd = &cobra.Command{
 	Use:     "credentials-broker",
-	Short:   "credentials-broker",
-	Long:    "credentials-broker",
+	Short:   "This tool is a kubectl plugin that supports updating credentials with kube-apiserver.",
+	Long:    "This tool is a kubectl plugin that supports updating credentials with kube-apiserver. via client-go credentials pluigin. There is nothing even to run alone.",
 	Version: Version,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := newRootCmdRunner(&rootCmdArgs{
