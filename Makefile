@@ -18,11 +18,11 @@ prerelease: check-version
 	go mod tidy
 	go generate ./...
 	git pull origin --tag
-	ghch -w -N ${VERSION}
+	ghch -w -N v${VERSION}
 	gocredits . > CREDITS
 	git add CHANGELOG.md CREDITS
-	git commit -m "bump version to ${VERSION}"
-	git tag ${VERSION}
+	git commit -m "bump version to v${VERSION}"
+	git tag v${VERSION}
 
 release:
 	goreleaser --rm-dist
