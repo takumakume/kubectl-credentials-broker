@@ -157,10 +157,6 @@ func (k *Kubeconfig) UpdateCurrentUserExecConfigDryRun(apiVersion, cmd string, a
 }
 
 func (k *Kubeconfig) write(path string, rawConfig api.Config) error {
-	if err := clientcmd.Validate(rawConfig); err != nil {
-		return err
-	}
-
 	if err := clientcmd.WriteToFile(rawConfig, path); err != nil {
 		return err
 	}
